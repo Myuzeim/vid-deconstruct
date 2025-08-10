@@ -1,6 +1,6 @@
 from PyQt6.QtCore import QAbstractListModel, QFile, QModelIndex, Qt
-from PyQt6.QtCore import QByteArray, pyqtSignal, QThread, QMutex, QMutexLocker
-from PyQt6.QtGui import QPixmap, QPixmapCache
+from PyQt6.QtCore import QByteArray, pyqtSignal, QThread
+from PyQt6.QtGui import QPixmap
 import sys
 import subprocess
 import ffmpeg
@@ -16,14 +16,16 @@ class FrameLoader(QThread):
     
     def run(self):
         for i, time in enumerate(self.timestamps):
+        
             fpix = ffmpeg.input(self.file.fileName(), ss=time) \
                             .filter('scale',128,128) \
                             .output('pipe:1', vframes=1, format='image2', vcodec='mjpeg', qscale=5) \
                             .global_args('-hide_banner', '-loglevel', 'error') \
                             .run(capture_stdout=True)
-            
+        
             self.load[i] = QByteArray(fpix[0])
             self.added.emit(i)
+
         
 
 class IFrameModel(QAbstractListModel):
@@ -67,13 +69,10 @@ class IFrameModel(QAbstractListModel):
         if role == Qt.ItemDataRole.DisplayRole:
             return self.iframe_timestamps[index.row()]
         if role == Qt.ItemDataRole.DecorationRole:
-            if index.row() in self.frame_load:
-                pix = QPixmapCache.find(str(index.row()))
-                if pix:
-                    return pix
+            if index.row() in self.frame_load:    
                 pix = QPixmap()
                 pix.loadFromData(self.frame_load[index.row()], "JPG")
-                QPixmapCache.insert(str(index.row()),pix)
+                return pix
             else:
                 return QPixmap(128,128)
         return None
